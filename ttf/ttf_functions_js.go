@@ -2026,24 +2026,29 @@ func initialize() {
 		return internal.NewObject[sdl.Surface](ret)
 	}
 
-	/*iRenderGlyph_Solid = func(font *Font, ch uint32) *sdl.Surface {
-		panic("not implemented on js")
+	iRenderGlyph_Solid = func(font *Font, ch, fg uint32) *sdl.Surface {
 		internal.StackSave()
 		defer internal.StackRestore()
 		_font, ok := internal.GetJSPointer(font)
 		if !ok {
-			_font = internal.StackAlloc(int(unsafe.Sizeof(*font)))
+			panic("nil font")
 		}
 		_ch := int32(ch)
+		// SDL_Color is passed by value -> pointer to {r,g,b,a} (see iRenderText_Blended).
+		_fg := internal.StackAlloc(4)
+		internal.SetValue(_fg, js.ValueOf(int32(fg)), "i32")
 		ret := js.Global().Get("Module").Call(
 			"_TTF_RenderGlyph_Solid",
 			_font,
 			_ch,
+			_fg,
 		)
 
-		_obj := internal.NewObject[sdl.Surface](ret)
-		return _obj
-	}*/
+		if ret.Int() == 0 {
+			return nil
+		}
+		return internal.NewObject[sdl.Surface](ret)
+	}
 
 	iRenderText_Shaded = func(font *Font, str string, length uintptr, fg uint32, bg uint32) *sdl.Surface {
 		internal.StackSave()
@@ -2104,26 +2109,32 @@ func initialize() {
 		return internal.NewObject[sdl.Surface](ret)
 	}
 
-	/*iRenderGlyph_Shaded = func(font *Font, ch uint32, fg uint32) *sdl.Surface {
-		panic("not implemented on js")
+	iRenderGlyph_Shaded = func(font *Font, ch uint32, fg, bg uint32) *sdl.Surface {
 		internal.StackSave()
 		defer internal.StackRestore()
 		_font, ok := internal.GetJSPointer(font)
 		if !ok {
-			_font = internal.StackAlloc(int(unsafe.Sizeof(*font)))
+			panic("nil font")
 		}
 		_ch := int32(ch)
-		_fg := int32(fg)
+		// SDL_Color args are passed by value -> pointer to {r,g,b,a}.
+		_fg := internal.StackAlloc(4)
+		internal.SetValue(_fg, js.ValueOf(int32(fg)), "i32")
+		_bg := internal.StackAlloc(4)
+		internal.SetValue(_bg, js.ValueOf(int32(bg)), "i32")
 		ret := js.Global().Get("Module").Call(
 			"_TTF_RenderGlyph_Shaded",
 			_font,
 			_ch,
 			_fg,
+			_bg,
 		)
 
-		_obj := internal.NewObject[sdl.Surface](ret)
-		return _obj
-	}*/
+		if ret.Int() == 0 {
+			return nil
+		}
+		return internal.NewObject[sdl.Surface](ret)
+	}
 
 	iRenderText_Blended = func(font *Font, str string, length uintptr, fg uint32) *sdl.Surface {
 		internal.StackSave()
@@ -2181,24 +2192,29 @@ func initialize() {
 		return internal.NewObject[sdl.Surface](ret)
 	}
 
-	/*iRenderGlyph_Blended = func(font *Font, ch uint32) *sdl.Surface {
-		panic("not implemented on js")
+	iRenderGlyph_Blended = func(font *Font, ch, fg uint32) *sdl.Surface {
 		internal.StackSave()
 		defer internal.StackRestore()
 		_font, ok := internal.GetJSPointer(font)
 		if !ok {
-			_font = internal.StackAlloc(int(unsafe.Sizeof(*font)))
+			panic("nil font")
 		}
 		_ch := int32(ch)
+		// SDL_Color is passed by value -> pointer to {r,g,b,a} (see iRenderText_Blended).
+		_fg := internal.StackAlloc(4)
+		internal.SetValue(_fg, js.ValueOf(int32(fg)), "i32")
 		ret := js.Global().Get("Module").Call(
 			"_TTF_RenderGlyph_Blended",
 			_font,
 			_ch,
+			_fg,
 		)
 
-		_obj := internal.NewObject[sdl.Surface](ret)
-		return _obj
-	}*/
+		if ret.Int() == 0 {
+			return nil
+		}
+		return internal.NewObject[sdl.Surface](ret)
+	}
 
 	iRenderText_LCD = func(font *Font, str string, length uintptr, fg uint32, bg uint32) *sdl.Surface {
 		internal.StackSave()
@@ -2259,23 +2275,31 @@ func initialize() {
 		return internal.NewObject[sdl.Surface](ret)
 	}
 
-	/*iRenderGlyph_LCD = func(font *Font, ch uint32) *sdl.Surface {
-		panic("not implemented on js")
+	iRenderGlyph_LCD = func(font *Font, ch, fg, bg uint32) *sdl.Surface {
 		internal.StackSave()
 		defer internal.StackRestore()
 		_font, ok := internal.GetJSPointer(font)
 		if !ok {
-			_font = internal.StackAlloc(int(unsafe.Sizeof(*font)))
+			panic("nil font")
 		}
 		_ch := int32(ch)
+		// SDL_Color args are passed by value -> pointer to {r,g,b,a}.
+		_fg := internal.StackAlloc(4)
+		internal.SetValue(_fg, js.ValueOf(int32(fg)), "i32")
+		_bg := internal.StackAlloc(4)
+		internal.SetValue(_bg, js.ValueOf(int32(bg)), "i32")
 		ret := js.Global().Get("Module").Call(
 			"_TTF_RenderGlyph_LCD",
 			_font,
 			_ch,
+			_fg,
+			_bg,
 		)
 
-		_obj := internal.NewObject[sdl.Surface](ret)
-		return _obj
-	}*/
+		if ret.Int() == 0 {
+			return nil
+		}
+		return internal.NewObject[sdl.Surface](ret)
+	}
 
 }

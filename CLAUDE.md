@@ -69,7 +69,8 @@ Un-stubbed/fixed the 2D-render, image, and text paths in `*_functions_js.go`:
 - **Text** (`ttf/`): `Init` was already working; added `Quit`, `CloseFont`,
   fixed `OpenFontIO` (was truncating the float `ptsize`), and the full
   `RenderText_*` family — `Solid`, `Shaded`, `Blended`, `LCD` and their
-  `_Wrapped` variants (`Shaded`/`LCD` were previously commented out). All pass
+  `_Wrapped` variants (`Shaded`/`LCD` were previously commented out), plus the
+  `RenderGlyph_*` family (`Solid`/`Shaded`/`Blended`/`LCD`). All pass
   `SDL_Color` by pointer (see marshaling notes) and were truncating `size_t`
   length via `NewBigInt`; now use `int32`.
 
