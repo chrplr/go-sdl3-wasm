@@ -1,8 +1,9 @@
 // Verification harness for core SDL3 audio (not SDL3_mixer) on the
 // WebAssembly (GOOS=js/GOARCH=wasm) path.
 //
-// It opens a default playback device stream and, on each click/keypress, queues
-// a generated sine-wave tone. Browsers suspend audio until a user gesture, so
+// It builds a WAV file in memory, decodes it with sdl.LoadWAV_IO (via an
+// in-memory IOStream - no Emscripten filesystem needed), then queues the decoded
+// PCM on each click/keypress. Browsers suspend audio until a user gesture, so
 // you must click the window for sound to play.
 //
 // Run natively:  go run ./examples/audio
@@ -10,6 +11,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/binary"
 	"math"
 
@@ -24,17 +26,33 @@ const (
 	amplitude  = 0.2
 )
 
-// makeTone returns one second of mono 32-bit float PCM (little-endian) for a
-// sine wave, matching the AUDIO_F32 stream format.
-func makeTone() []byte {
+// makeWAV builds a mono 16-bit PCM WAV file (sine wave) entirely in memory, so
+// sdl.LoadWAV_IO has something real to decode without any asset on disk.
+func makeWAV() []byte {
 	n := int(sampleRate * seconds)
-	buf := make([]byte, n*4)
+	dataSize := n * 2 // 16-bit mono
+	var b bytes.Buffer
+	w := func(v any) { binary.Write(&b, binary.LittleEndian, v) }
+
+	b.WriteString("RIFF")
+	w(uint32(36 + dataSize))
+	b.WriteString("WAVE")
+	b.WriteString("fmt ")
+	w(uint32(16))             // fmt chunk size
+	w(uint16(1))              // PCM
+	w(uint16(1))              // channels
+	w(uint32(sampleRate))     // sample rate
+	w(uint32(sampleRate * 2)) // byte rate = rate * blockAlign
+	w(uint16(2))              // block align = channels * bytesPerSample
+	w(uint16(16))             // bits per sample
+	b.WriteString("data")
+	w(uint32(dataSize))
 	for i := 0; i < n; i++ {
 		t := float64(i) / float64(sampleRate)
-		v := float32(amplitude * math.Sin(2*math.Pi*freq*t))
-		binary.LittleEndian.PutUint32(buf[i*4:], math.Float32bits(v))
+		s := int16(amplitude * math.Sin(2*math.Pi*freq*t) * 32767)
+		w(s)
 	}
-	return buf
+	return b.Bytes()
 }
 
 func main() {
@@ -52,22 +70,26 @@ func main() {
 	defer window.Destroy()
 	defer renderer.Destroy()
 
-	spec := sdl.AudioSpec{
-		Format:   sdl.AUDIO_F32,
-		Channels: 1,
-		Freq:     sampleRate,
+	// Decode the in-memory WAV. spec is filled from the file's header.
+	stream, err := sdl.IOFromConstMem(makeWAV())
+	if err != nil {
+		panic(err)
 	}
-	// nil callback: we push samples manually with PutData.
-	stream := sdl.AUDIO_DEVICE_DEFAULT_PLAYBACK.OpenAudioDeviceStream(&spec, sdl.AudioStreamCallback(0))
-	if stream == nil {
-		panic("failed to open audio device stream")
-	}
-	defer stream.Destroy()
-	if err := stream.ResumeDevice(); err != nil {
+	var spec sdl.AudioSpec
+	pcm, err := sdl.LoadWAV_IO(stream, true, &spec)
+	if err != nil {
 		panic(err)
 	}
 
-	tone := makeTone()
+	// Open a playback stream using the format reported by the WAV.
+	audio := sdl.AUDIO_DEVICE_DEFAULT_PLAYBACK.OpenAudioDeviceStream(&spec, sdl.AudioStreamCallback(0))
+	if audio == nil {
+		panic("failed to open audio device stream")
+	}
+	defer audio.Destroy()
+	if err := audio.ResumeDevice(); err != nil {
+		panic(err)
+	}
 
 	sdl.RunLoop(func() error {
 		var event sdl.Event
@@ -76,20 +98,20 @@ func main() {
 			case sdl.EVENT_QUIT:
 				return sdl.EndLoop
 			case sdl.EVENT_KEY_DOWN, sdl.EVENT_MOUSE_BUTTON_DOWN:
-				// Queue another tone. (Browsers resume the audio context on
+				// Queue the decoded PCM. (Browsers resume the audio context on
 				// this same user gesture.)
-				if err := stream.PutData(tone); err != nil {
+				if err := audio.PutData(pcm); err != nil {
 					return err
 				}
 			}
 		}
 
-		queued, _ := stream.Queued()
+		queued, _ := audio.Queued()
 
 		renderer.SetDrawColor(20, 20, 30, 255)
 		renderer.Clear()
 		renderer.SetDrawColor(220, 220, 220, 255)
-		renderer.DebugText(20, 40, "Click or press a key to play a 440Hz tone.")
+		renderer.DebugText(20, 40, "Click or press a key to play a decoded WAV tone.")
 		if queued > 0 {
 			renderer.DebugText(20, 70, "playing...")
 		}

@@ -59,6 +59,13 @@ Un-stubbed/fixed the 2D-render, image, and text paths in `*_functions_js.go`:
   wasm heap; `OpenAudioDeviceStream` copies the `AudioSpec` and treats
   `userdata`/`callback` as `i32`. Browser autoplay policy means sound only
   starts after a user gesture (click/keypress).
+- **`LoadWAV_IO` / `LoadWAV`** are platform-split (`loadwav_notjs.go` /
+  `loadwav_js.go`) because SDL allocates the decoded buffer in the Emscripten
+  heap: the js version copies it into Go memory (`GetByteSliceFromJSPtr`) and
+  frees it with `_SDL_free`, instead of the native path's `ClonePtrSlice` +
+  `internal.Free` (which assume a Go-readable pointer). `LoadWAV` (path-based) is
+  unsupported on js — use `LoadWAV_IO` with `IOFromConstMem`. This split pattern
+  is the template for any function returning an SDL-allocated buffer.
 - **Text** (`ttf/`): `Init` was already working; added `Quit`, `CloseFont`,
   fixed `OpenFontIO` (was truncating the float `ptsize`), and the full
   `RenderText_*` family — `Solid`, `Shaded`, `Blended`, `LCD` and their
