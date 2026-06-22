@@ -14289,6 +14289,8 @@ func initialize() {
 		internal.StackSave()
 		defer internal.StackRestore()
 
+		sizeCanvas(width, height)
+
 		_title := internal.StringOnJSStack(title)
 		_width := int32(width)
 		_height := int32(height)

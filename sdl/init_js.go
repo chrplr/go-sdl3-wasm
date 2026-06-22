@@ -52,7 +52,9 @@ func RunLoop(updateFunc func() error) error {
 		return nil
 	})
 	fnAddr := js.Global().Get("Module").Call("addFunction", fn, "v")
-	js.Global().Call("_emscripten_set_main_loop", fnAddr, -1, 0)
+	// fps == 0 makes emscripten drive the loop with requestAnimationFrame,
+	// which is what the browser wants (a positive fps uses setTimeout instead).
+	js.Global().Call("_emscripten_set_main_loop", fnAddr, 0, 0)
 
 	err := <-ch
 

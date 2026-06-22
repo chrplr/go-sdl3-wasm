@@ -51,10 +51,23 @@ func goVersion(buildDir string) (string, error) {
 	return v, nil
 }
 
+// goRoot returns the active GOROOT. It prefers the GOROOT environment variable
+// but falls back to `go env GOROOT`, since GOROOT is usually unset when wasmsdl
+// is launched via `go run`.
+func goRoot() string {
+	if dir, ok := os.LookupEnv("GOROOT"); ok && dir != "" {
+		return dir
+	}
+	out, err := exec.Command("go", "env", "GOROOT").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
 func getWasmExecJS(buildDir string) ([]byte, error) {
 	// Try finding it locally
-	dir, ok := os.LookupEnv("GOROOT")
-	if ok {
+	if dir := goRoot(); dir != "" {
 		// go1.23.0 and before were under "misc" folder
 		for _, d := range []string{"lib", "misc"} {
 			b, err := os.ReadFile(filepath.Join(dir, d, "wasm/wasm_exec.js"))
