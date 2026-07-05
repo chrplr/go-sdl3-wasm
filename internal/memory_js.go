@@ -197,6 +197,14 @@ func GetJSPointer[T any](obj *T) (js.Value, bool) {
 }
 
 func NewObject[T any](ptr js.Value) *T {
+	// A NULL C pointer must map to a nil Go pointer, matching the native purego
+	// bindings. SDL/MIX return NULL on failure; without this the null was wrapped
+	// as a non-nil *T, so the `if x == nil` error checks in the Go methods never
+	// fired and a failed call read as success.
+	if ptr.IsNull() || ptr.IsUndefined() || (ptr.Type() == js.TypeNumber && ptr.Int() == 0) {
+		return nil
+	}
+
 	var t T
 
 	obj := pool.Get().(*object)
