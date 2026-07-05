@@ -14797,7 +14797,6 @@ func initialize() {
 	}
 
 	iSetTextureBlendMode = func(texture *Texture, blendMode BlendMode) bool {
-		panic("not implemented on js")
 		internal.StackSave()
 		defer internal.StackRestore()
 		_texture, ok := internal.GetJSPointer(texture)
@@ -14836,7 +14835,6 @@ func initialize() {
 	}
 
 	iSetTextureScaleMode = func(texture *Texture, scaleMode ScaleMode) bool {
-		panic("not implemented on js")
 		internal.StackSave()
 		defer internal.StackRestore()
 		_texture, ok := internal.GetJSPointer(texture)
