@@ -1308,15 +1308,10 @@ func GetKeyboardFocus() *Window {
 	return iGetKeyboardFocus()
 }
 
-// SDL_GetKeyboardState - Get a snapshot of the current state of the keyboard.
-// (https://wiki.libsdl.org/SDL3/SDL_GetKeyboardState)
-func GetKeyboardState() []bool {
-	var count int32
-
-	ptr := iGetKeyboardState(&count)
-
-	return internal.PtrToSlice[bool](uintptr(unsafe.Pointer(ptr)), int(count))
-}
+// GetKeyboardState is platform-split (keyboardstate_notjs.go /
+// keyboardstate_js.go): SDL returns a pointer to its internal state array,
+// which native code can view directly but the js path must copy out of the
+// Emscripten heap.
 
 // SDL_ResetKeyboard - Clear the state of the keyboard.
 // (https://wiki.libsdl.org/SDL3/SDL_ResetKeyboard)

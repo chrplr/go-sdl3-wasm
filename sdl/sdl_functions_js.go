@@ -10566,9 +10566,6 @@ func initialize() {
 	}
 
 	iHasEvent = func(typ uint32) bool {
-		panic("not implemented on js")
-		internal.StackSave()
-		defer internal.StackRestore()
 		_typ := int32(typ)
 		ret := js.Global().Get("Module").Call(
 			"_SDL_HasEvent",
@@ -14980,12 +14977,9 @@ func initialize() {
 	}
 
 	iSetRenderLogicalPresentation = func(renderer *Renderer, w int32, h int32, mode RendererLogicalPresentation) bool {
-		panic("not implemented on js")
-		internal.StackSave()
-		defer internal.StackRestore()
 		_renderer, ok := internal.GetJSPointer(renderer)
 		if !ok {
-			_renderer = internal.StackAlloc(int(unsafe.Sizeof(*renderer)))
+			panic("nil renderer")
 		}
 		_w := int32(w)
 		_h := int32(h)
