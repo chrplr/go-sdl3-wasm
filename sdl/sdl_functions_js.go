@@ -2372,9 +2372,6 @@ func initialize() {
 	}
 
 	iGetCurrentAudioDriver = func() string {
-		panic("not implemented on js")
-		internal.StackSave()
-		defer internal.StackRestore()
 		ret := js.Global().Get("Module").Call(
 			"_SDL_GetCurrentAudioDriver",
 		)
@@ -5568,9 +5565,6 @@ func initialize() {
 	}
 
 	iGetCurrentVideoDriver = func() string {
-		panic("not implemented on js")
-		internal.StackSave()
-		defer internal.StackRestore()
 		ret := js.Global().Get("Module").Call(
 			"_SDL_GetCurrentVideoDriver",
 		)
@@ -5606,9 +5600,6 @@ func initialize() {
 	}
 
 	iGetPrimaryDisplay = func() DisplayID {
-		panic("not implemented on js")
-		internal.StackSave()
-		defer internal.StackRestore()
 		ret := js.Global().Get("Module").Call(
 			"_SDL_GetPrimaryDisplay",
 		)
@@ -5630,9 +5621,6 @@ func initialize() {
 	}
 
 	iGetDisplayName = func(displayID DisplayID) string {
-		panic("not implemented on js")
-		internal.StackSave()
-		defer internal.StackRestore()
 		_displayID := int32(displayID)
 		ret := js.Global().Get("Module").Call(
 			"_SDL_GetDisplayName",
@@ -5643,19 +5631,18 @@ func initialize() {
 	}
 
 	iGetDisplayBounds = func(displayID DisplayID, rect *Rect) bool {
-		panic("not implemented on js")
 		internal.StackSave()
 		defer internal.StackRestore()
 		_displayID := int32(displayID)
-		_rect, ok := internal.GetJSPointer(rect)
-		if !ok {
-			_rect = internal.StackAlloc(int(unsafe.Sizeof(*rect)))
-		}
+		_rect := internal.StackAlloc(int(unsafe.Sizeof(*rect)))
 		ret := js.Global().Get("Module").Call(
 			"_SDL_GetDisplayBounds",
 			_displayID,
 			_rect,
 		)
+		if rect != nil {
+			internal.CopyJSToObject(rect, _rect)
+		}
 
 		return internal.GetBool(ret)
 	}
@@ -5705,16 +5692,13 @@ func initialize() {
 	}
 
 	iGetDisplayContentScale = func(displayID DisplayID) float32 {
-		panic("not implemented on js")
-		internal.StackSave()
-		defer internal.StackRestore()
 		_displayID := int32(displayID)
 		ret := js.Global().Get("Module").Call(
 			"_SDL_GetDisplayContentScale",
 			_displayID,
 		)
 
-		return float32(ret.Int())
+		return float32(ret.Float())
 	}
 
 	iGetFullscreenDisplayModes = func(displayID DisplayID, count *int32) uintptr {
@@ -5762,35 +5746,23 @@ func initialize() {
 	}
 
 	iGetDesktopDisplayMode = func(displayID DisplayID) *DisplayMode {
-		panic("not implemented on js")
-		internal.StackSave()
-		defer internal.StackRestore()
 		_displayID := int32(displayID)
 		ret := js.Global().Get("Module").Call(
 			"_SDL_GetDesktopDisplayMode",
 			_displayID,
 		)
 
-		_obj := &DisplayMode{}
-		//internal.StoreJSPointer(_obj, ret)
-		_ = ret
-		return _obj
+		return internal.NewObject[DisplayMode](ret)
 	}
 
 	iGetCurrentDisplayMode = func(displayID DisplayID) *DisplayMode {
-		panic("not implemented on js")
-		internal.StackSave()
-		defer internal.StackRestore()
 		_displayID := int32(displayID)
 		ret := js.Global().Get("Module").Call(
 			"_SDL_GetCurrentDisplayMode",
 			_displayID,
 		)
 
-		_obj := &DisplayMode{}
-		//internal.StoreJSPointer(_obj, ret)
-		_ = ret
-		return _obj
+		return internal.NewObject[DisplayMode](ret)
 	}
 
 	iGetDisplayForPoint = func(point *Point) DisplayID {
@@ -5826,12 +5798,9 @@ func initialize() {
 	}
 
 	iGetDisplayForWindow = func(window *Window) DisplayID {
-		panic("not implemented on js")
-		internal.StackSave()
-		defer internal.StackRestore()
 		_window, ok := internal.GetJSPointer(window)
 		if !ok {
-			_window = internal.StackAlloc(int(unsafe.Sizeof(*window)))
+			panic("nil window")
 		}
 		ret := js.Global().Get("Module").Call(
 			"_SDL_GetDisplayForWindow",
@@ -6098,19 +6067,18 @@ func initialize() {
 	}
 
 	iGetWindowFlags = func(window *Window) WindowFlags {
-		panic("not implemented on js")
-		internal.StackSave()
-		defer internal.StackRestore()
 		_window, ok := internal.GetJSPointer(window)
 		if !ok {
-			_window = internal.StackAlloc(int(unsafe.Sizeof(*window)))
+			panic("nil window")
 		}
 		ret := js.Global().Get("Module").Call(
 			"_SDL_GetWindowFlags",
 			_window,
 		)
 
-		return WindowFlags(ret.Int())
+		// SDL_WindowFlags is Uint64: the wasm export returns a BigInt, which
+		// js.Value.Int would reject.
+		return WindowFlags(internal.GetInt64(ret))
 	}
 
 	iSetWindowTitle = func(window *Window, title string) bool {
@@ -10419,28 +10387,19 @@ func initialize() {
 	}
 
 	iCreateSystemCursor = func(id SystemCursor) *Cursor {
-		panic("not implemented on js")
-		internal.StackSave()
-		defer internal.StackRestore()
 		_id := int32(id)
 		ret := js.Global().Get("Module").Call(
 			"_SDL_CreateSystemCursor",
 			_id,
 		)
 
-		_obj := &Cursor{}
-		//internal.StoreJSPointer(_obj, ret)
-		_ = ret
-		return _obj
+		return internal.NewObject[Cursor](ret)
 	}
 
 	iSetCursor = func(cursor *Cursor) bool {
-		panic("not implemented on js")
-		internal.StackSave()
-		defer internal.StackRestore()
 		_cursor, ok := internal.GetJSPointer(cursor)
 		if !ok {
-			_cursor = internal.StackAlloc(int(unsafe.Sizeof(*cursor)))
+			panic("nil cursor")
 		}
 		ret := js.Global().Get("Module").Call(
 			"_SDL_SetCursor",
@@ -10577,9 +10536,6 @@ func initialize() {
 	}
 
 	iPumpEvents = func() {
-		panic("not implemented on js")
-		internal.StackSave()
-		defer internal.StackRestore()
 		js.Global().Get("Module").Call(
 			"_SDL_PumpEvents",
 		)
@@ -14381,12 +14337,9 @@ func initialize() {
 	}
 
 	iGetRendererName = func(renderer *Renderer) string {
-		panic("not implemented on js")
-		internal.StackSave()
-		defer internal.StackRestore()
 		_renderer, ok := internal.GetJSPointer(renderer)
 		if !ok {
-			_renderer = internal.StackAlloc(int(unsafe.Sizeof(*renderer)))
+			panic("nil renderer")
 		}
 		ret := js.Global().Get("Module").Call(
 			"_SDL_GetRendererName",
@@ -15012,22 +14965,18 @@ func initialize() {
 	}
 
 	iGetRenderTarget = func(renderer *Renderer) *Texture {
-		panic("not implemented on js")
-		internal.StackSave()
-		defer internal.StackRestore()
 		_renderer, ok := internal.GetJSPointer(renderer)
 		if !ok {
-			_renderer = internal.StackAlloc(int(unsafe.Sizeof(*renderer)))
+			panic("nil renderer")
 		}
 		ret := js.Global().Get("Module").Call(
 			"_SDL_GetRenderTarget",
 			_renderer,
 		)
-		_ = ret
 
-		_obj := &Texture{}
-		// internal.StoreJSPointer(_obj, ret)
-		return _obj
+		// NULL (no explicit render target) must map to nil: Screen code uses
+		// `RenderTarget() != nil` to decide whether to reset before presenting.
+		return internal.NewObject[Texture](ret)
 	}
 
 	iSetRenderLogicalPresentation = func(renderer *Renderer, w int32, h int32, mode RendererLogicalPresentation) bool {
@@ -16065,22 +16014,21 @@ func initialize() {
 	}
 
 	iGetRenderVSync = func(renderer *Renderer, vsync *int32) bool {
-		panic("not implemented on js")
 		internal.StackSave()
 		defer internal.StackRestore()
 		_renderer, ok := internal.GetJSPointer(renderer)
 		if !ok {
-			_renderer = internal.StackAlloc(int(unsafe.Sizeof(*renderer)))
+			panic("nil renderer")
 		}
-		_vsync, ok := internal.GetJSPointer(vsync)
-		if !ok {
-			_vsync = internal.StackAlloc(int(unsafe.Sizeof(*vsync)))
-		}
+		_vsync := internal.StackAlloc(4)
 		ret := js.Global().Get("Module").Call(
 			"_SDL_GetRenderVSync",
 			_renderer,
 			_vsync,
 		)
+		if vsync != nil {
+			*vsync = int32(internal.GetValue(_vsync, "i32").Int())
+		}
 
 		return internal.GetBool(ret)
 	}
@@ -16737,9 +16685,6 @@ func initialize() {
 	}
 
 	iGetTicksNS = func() uint64 {
-		panic("not implemented on js")
-		internal.StackSave()
-		defer internal.StackRestore()
 		ret := js.Global().Get("Module").Call(
 			"_SDL_GetTicksNS",
 		)

@@ -460,12 +460,9 @@ func initialize() {
 	}
 
 	iSetFontWrapAlignment = func(font *Font, align HorizontalAlignment) {
-		panic("not implemented on js")
-		internal.StackSave()
-		defer internal.StackRestore()
 		_font, ok := internal.GetJSPointer(font)
 		if !ok {
-			_font = internal.StackAlloc(int(unsafe.Sizeof(*font)))
+			panic("nil font")
 		}
 		_align := int32(align)
 		js.Global().Get("Module").Call(
@@ -492,12 +489,9 @@ func initialize() {
 	}
 
 	iGetFontHeight = func(font *Font) int32 {
-		panic("not implemented on js")
-		internal.StackSave()
-		defer internal.StackRestore()
 		_font, ok := internal.GetJSPointer(font)
 		if !ok {
-			_font = internal.StackAlloc(int(unsafe.Sizeof(*font)))
+			panic("nil font")
 		}
 		ret := js.Global().Get("Module").Call(
 			"_TTF_GetFontHeight",
@@ -939,24 +933,19 @@ func initialize() {
 	}
 
 	iGetStringSizeWrapped = func(font *Font, text string, length uintptr, wrap_width int32, w *int32, h *int32) bool {
-		panic("not implemented on js")
 		internal.StackSave()
 		defer internal.StackRestore()
 		_font, ok := internal.GetJSPointer(font)
 		if !ok {
-			_font = internal.StackAlloc(int(unsafe.Sizeof(*font)))
+			panic("nil font")
 		}
 		_text := internal.StringOnJSStack(text)
-		_length := internal.NewBigInt(length)
+		// length is size_t (i32 on wasm32); NewBigInt would pass a BigInt to
+		// an i32 parameter.
+		_length := int32(length)
 		_wrap_width := int32(wrap_width)
-		_w, ok := internal.GetJSPointer(w)
-		if !ok {
-			_w = internal.StackAlloc(int(unsafe.Sizeof(*w)))
-		}
-		_h, ok := internal.GetJSPointer(h)
-		if !ok {
-			_h = internal.StackAlloc(int(unsafe.Sizeof(*h)))
-		}
+		_w := internal.StackAlloc(4)
+		_h := internal.StackAlloc(4)
 		ret := js.Global().Get("Module").Call(
 			"_TTF_GetStringSizeWrapped",
 			_font,
@@ -966,6 +955,8 @@ func initialize() {
 			_w,
 			_h,
 		)
+		*w = int32(internal.GetValue(_w, "i32").Int())
+		*h = int32(internal.GetValue(_h, "i32").Int())
 
 		return internal.GetBool(ret)
 	}
