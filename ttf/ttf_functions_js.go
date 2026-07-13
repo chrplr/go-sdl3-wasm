@@ -100,16 +100,17 @@ func initialize() {
 			panic("nil stream")
 		}
 		_closeio := internal.NewBoolean(closeio)
-		_ptsize := int32(ptsize)
 		ret := js.Global().Get("Module").Call(
 			"_TTF_OpenFontIO",
 			_src,
 			_closeio,
-			_ptsize,
+			ptsize,
 		)
 
-		_obj := internal.NewObject[Font](ret)
-		return _obj
+		if ret.Int() == 0 {
+			return nil
+		}
+		return internal.NewObject[Font](ret)
 	}
 
 	/*iOpenFontWithProperties = func(props *sdl.PropertiesID) *Font {
@@ -233,18 +234,14 @@ func initialize() {
 	}
 
 	iSetFontSize = func(font *Font, ptsize float32) bool {
-		panic("not implemented on js")
-		internal.StackSave()
-		defer internal.StackRestore()
 		_font, ok := internal.GetJSPointer(font)
 		if !ok {
-			_font = internal.StackAlloc(int(unsafe.Sizeof(*font)))
+			panic("nil font")
 		}
-		_ptsize := int32(ptsize)
 		ret := js.Global().Get("Module").Call(
 			"_TTF_SetFontSize",
 			_font,
-			_ptsize,
+			ptsize,
 		)
 
 		return internal.GetBool(ret)
@@ -1923,23 +1920,18 @@ func initialize() {
 	}
 
 	iCloseFont = func(font *Font) {
-		panic("not implemented on js")
-		internal.StackSave()
-		defer internal.StackRestore()
 		_font, ok := internal.GetJSPointer(font)
 		if !ok {
-			_font = internal.StackAlloc(int(unsafe.Sizeof(*font)))
+			return
 		}
 		js.Global().Get("Module").Call(
 			"_TTF_CloseFont",
 			_font,
 		)
+		internal.DeleteJSPointer(uintptr(unsafe.Pointer(font)))
 	}
 
 	iQuit = func() {
-		panic("not implemented on js")
-		internal.StackSave()
-		defer internal.StackRestore()
 		js.Global().Get("Module").Call(
 			"_TTF_Quit",
 		)
@@ -1982,8 +1974,11 @@ func initialize() {
 			panic("nil font")
 		}
 		_str := internal.StringOnJSStack(str)
-		_length := internal.NewBigInt(length)
-		_fg := int32(fg)
+		_length := int32(length)
+		// SDL_Color is passed by value, which the wasm ABI lowers to a pointer
+		// to a 4-byte {r,g,b,a} struct. Write the packed color and pass its addr.
+		_fg := internal.StackAlloc(4)
+		internal.SetValue(_fg, js.ValueOf(int32(fg)), "i32")
 		ret := js.Global().Get("Module").Call(
 			"_TTF_RenderText_Solid",
 			_font,
@@ -1992,21 +1987,25 @@ func initialize() {
 			_fg,
 		)
 
-		_obj := internal.NewObject[sdl.Surface](ret)
-		return _obj
+		if ret.Int() == 0 {
+			return nil
+		}
+		return internal.NewObject[sdl.Surface](ret)
 	}
 
 	iRenderText_Solid_Wrapped = func(font *Font, str string, length uintptr, fg uint32, wrapLength int32) *sdl.Surface {
-		panic("not implemented on js")
 		internal.StackSave()
 		defer internal.StackRestore()
 		_font, ok := internal.GetJSPointer(font)
 		if !ok {
-			_font = internal.StackAlloc(int(unsafe.Sizeof(*font)))
+			panic("nil font")
 		}
 		_str := internal.StringOnJSStack(str)
-		_length := internal.NewBigInt(length)
-		_fg := int32(fg)
+		_length := int32(length)
+		// SDL_Color is passed by value, which the wasm ABI lowers to a pointer
+		// to a 4-byte {r,g,b,a} struct. Write the packed color and pass its addr.
+		_fg := internal.StackAlloc(4)
+		internal.SetValue(_fg, js.ValueOf(int32(fg)), "i32")
 		_wrapLength := int32(wrapLength)
 		ret := js.Global().Get("Module").Call(
 			"_TTF_RenderText_Solid_Wrapped",
@@ -2017,63 +2016,78 @@ func initialize() {
 			_wrapLength,
 		)
 
-		_obj := internal.NewObject[sdl.Surface](ret)
-		return _obj
+		if ret.Int() == 0 {
+			return nil
+		}
+		return internal.NewObject[sdl.Surface](ret)
 	}
 
-	/*iRenderGlyph_Solid = func(font *Font, ch uint32) *sdl.Surface {
-		panic("not implemented on js")
+	iRenderGlyph_Solid = func(font *Font, ch, fg uint32) *sdl.Surface {
 		internal.StackSave()
 		defer internal.StackRestore()
 		_font, ok := internal.GetJSPointer(font)
 		if !ok {
-			_font = internal.StackAlloc(int(unsafe.Sizeof(*font)))
+			panic("nil font")
 		}
 		_ch := int32(ch)
+		// SDL_Color is passed by value -> pointer to {r,g,b,a} (see iRenderText_Blended).
+		_fg := internal.StackAlloc(4)
+		internal.SetValue(_fg, js.ValueOf(int32(fg)), "i32")
 		ret := js.Global().Get("Module").Call(
 			"_TTF_RenderGlyph_Solid",
 			_font,
 			_ch,
+			_fg,
 		)
 
-		_obj := internal.NewObject[sdl.Surface](ret)
-		return _obj
-	}*/
+		if ret.Int() == 0 {
+			return nil
+		}
+		return internal.NewObject[sdl.Surface](ret)
+	}
 
-	/*iRenderText_Shaded = func(font *Font, str string, length uintptr, fg uint32) *sdl.Surface {
-		panic("not implemented on js")
+	iRenderText_Shaded = func(font *Font, str string, length uintptr, fg uint32, bg uint32) *sdl.Surface {
 		internal.StackSave()
 		defer internal.StackRestore()
 		_font, ok := internal.GetJSPointer(font)
 		if !ok {
-			_font = internal.StackAlloc(int(unsafe.Sizeof(*font)))
+			panic("nil font")
 		}
 		_str := internal.StringOnJSStack(str)
-		_length := internal.NewBigInt(length)
-		_fg := int32(fg)
+		_length := int32(length)
+		// SDL_Color args are passed by value -> pointer to {r,g,b,a} (see Blended).
+		_fg := internal.StackAlloc(4)
+		internal.SetValue(_fg, js.ValueOf(int32(fg)), "i32")
+		_bg := internal.StackAlloc(4)
+		internal.SetValue(_bg, js.ValueOf(int32(bg)), "i32")
 		ret := js.Global().Get("Module").Call(
 			"_TTF_RenderText_Shaded",
 			_font,
 			_str,
 			_length,
 			_fg,
+			_bg,
 		)
 
-		_obj := internal.NewObject[sdl.Surface](ret)
-		return _obj
-	}*/
+		if ret.Int() == 0 {
+			return nil
+		}
+		return internal.NewObject[sdl.Surface](ret)
+	}
 
-	/*iRenderText_Shaded_Wrapped = func(font *Font, str string, length uintptr, fg uint32, wrapWidth int32) *sdl.Surface {
-		panic("not implemented on js")
+	iRenderText_Shaded_Wrapped = func(font *Font, str string, length uintptr, fg uint32, bg uint32, wrapWidth int32) *sdl.Surface {
 		internal.StackSave()
 		defer internal.StackRestore()
 		_font, ok := internal.GetJSPointer(font)
 		if !ok {
-			_font = internal.StackAlloc(int(unsafe.Sizeof(*font)))
+			panic("nil font")
 		}
 		_str := internal.StringOnJSStack(str)
-		_length := internal.NewBigInt(length)
-		_fg := int32(fg)
+		_length := int32(length)
+		_fg := internal.StackAlloc(4)
+		internal.SetValue(_fg, js.ValueOf(int32(fg)), "i32")
+		_bg := internal.StackAlloc(4)
+		internal.SetValue(_bg, js.ValueOf(int32(bg)), "i32")
 		_wrapWidth := int32(wrapWidth)
 		ret := js.Global().Get("Module").Call(
 			"_TTF_RenderText_Shaded_Wrapped",
@@ -2081,33 +2095,42 @@ func initialize() {
 			_str,
 			_length,
 			_fg,
+			_bg,
 			_wrapWidth,
 		)
 
-		_obj := internal.NewObject[sdl.Surface](ret)
-		return _obj
-	}*/
+		if ret.Int() == 0 {
+			return nil
+		}
+		return internal.NewObject[sdl.Surface](ret)
+	}
 
-	/*iRenderGlyph_Shaded = func(font *Font, ch uint32, fg uint32) *sdl.Surface {
-		panic("not implemented on js")
+	iRenderGlyph_Shaded = func(font *Font, ch uint32, fg, bg uint32) *sdl.Surface {
 		internal.StackSave()
 		defer internal.StackRestore()
 		_font, ok := internal.GetJSPointer(font)
 		if !ok {
-			_font = internal.StackAlloc(int(unsafe.Sizeof(*font)))
+			panic("nil font")
 		}
 		_ch := int32(ch)
-		_fg := int32(fg)
+		// SDL_Color args are passed by value -> pointer to {r,g,b,a}.
+		_fg := internal.StackAlloc(4)
+		internal.SetValue(_fg, js.ValueOf(int32(fg)), "i32")
+		_bg := internal.StackAlloc(4)
+		internal.SetValue(_bg, js.ValueOf(int32(bg)), "i32")
 		ret := js.Global().Get("Module").Call(
 			"_TTF_RenderGlyph_Shaded",
 			_font,
 			_ch,
 			_fg,
+			_bg,
 		)
 
-		_obj := internal.NewObject[sdl.Surface](ret)
-		return _obj
-	}*/
+		if ret.Int() == 0 {
+			return nil
+		}
+		return internal.NewObject[sdl.Surface](ret)
+	}
 
 	iRenderText_Blended = func(font *Font, str string, length uintptr, fg uint32) *sdl.Surface {
 		internal.StackSave()
@@ -2118,7 +2141,10 @@ func initialize() {
 		}
 		_str := internal.StringOnJSStack(str)
 		_length := int32(length)
-		_fg := int32(fg)
+		// SDL_Color is passed by value, which the wasm ABI lowers to a pointer
+		// to a 4-byte {r,g,b,a} struct. Write the packed color and pass its addr.
+		_fg := internal.StackAlloc(4)
+		internal.SetValue(_fg, js.ValueOf(int32(fg)), "i32")
 		ret := js.Global().Get("Module").Call(
 			"_TTF_RenderText_Blended",
 			_font,
@@ -2127,21 +2153,25 @@ func initialize() {
 			_fg,
 		)
 
-		_obj := internal.NewObject[sdl.Surface](ret)
-		return _obj
+		if ret.Int() == 0 {
+			return nil
+		}
+		return internal.NewObject[sdl.Surface](ret)
 	}
 
 	iRenderText_Blended_Wrapped = func(font *Font, str string, length uintptr, fg uint32, wrapWidth int32) *sdl.Surface {
-		panic("not implemented on js")
 		internal.StackSave()
 		defer internal.StackRestore()
 		_font, ok := internal.GetJSPointer(font)
 		if !ok {
-			_font = internal.StackAlloc(int(unsafe.Sizeof(*font)))
+			panic("nil font")
 		}
 		_str := internal.StringOnJSStack(str)
-		_length := internal.NewBigInt(length)
-		_fg := int32(fg)
+		_length := int32(length)
+		// SDL_Color is passed by value, which the wasm ABI lowers to a pointer
+		// to a 4-byte {r,g,b,a} struct. Write the packed color and pass its addr.
+		_fg := internal.StackAlloc(4)
+		internal.SetValue(_fg, js.ValueOf(int32(fg)), "i32")
 		_wrapWidth := int32(wrapWidth)
 		ret := js.Global().Get("Module").Call(
 			"_TTF_RenderText_Blended_Wrapped",
@@ -2152,63 +2182,78 @@ func initialize() {
 			_wrapWidth,
 		)
 
-		_obj := internal.NewObject[sdl.Surface](ret)
-		return _obj
+		if ret.Int() == 0 {
+			return nil
+		}
+		return internal.NewObject[sdl.Surface](ret)
 	}
 
-	/*iRenderGlyph_Blended = func(font *Font, ch uint32) *sdl.Surface {
-		panic("not implemented on js")
+	iRenderGlyph_Blended = func(font *Font, ch, fg uint32) *sdl.Surface {
 		internal.StackSave()
 		defer internal.StackRestore()
 		_font, ok := internal.GetJSPointer(font)
 		if !ok {
-			_font = internal.StackAlloc(int(unsafe.Sizeof(*font)))
+			panic("nil font")
 		}
 		_ch := int32(ch)
+		// SDL_Color is passed by value -> pointer to {r,g,b,a} (see iRenderText_Blended).
+		_fg := internal.StackAlloc(4)
+		internal.SetValue(_fg, js.ValueOf(int32(fg)), "i32")
 		ret := js.Global().Get("Module").Call(
 			"_TTF_RenderGlyph_Blended",
 			_font,
 			_ch,
+			_fg,
 		)
 
-		_obj := internal.NewObject[sdl.Surface](ret)
-		return _obj
-	}*/
+		if ret.Int() == 0 {
+			return nil
+		}
+		return internal.NewObject[sdl.Surface](ret)
+	}
 
-	/*iRenderText_LCD = func(font *Font, str string, length uintptr, fg uint32) *sdl.Surface {
-		panic("not implemented on js")
+	iRenderText_LCD = func(font *Font, str string, length uintptr, fg uint32, bg uint32) *sdl.Surface {
 		internal.StackSave()
 		defer internal.StackRestore()
 		_font, ok := internal.GetJSPointer(font)
 		if !ok {
-			_font = internal.StackAlloc(int(unsafe.Sizeof(*font)))
+			panic("nil font")
 		}
 		_str := internal.StringOnJSStack(str)
-		_length := internal.NewBigInt(length)
-		_fg := int32(fg)
+		_length := int32(length)
+		// SDL_Color args are passed by value -> pointer to {r,g,b,a} (see Blended).
+		_fg := internal.StackAlloc(4)
+		internal.SetValue(_fg, js.ValueOf(int32(fg)), "i32")
+		_bg := internal.StackAlloc(4)
+		internal.SetValue(_bg, js.ValueOf(int32(bg)), "i32")
 		ret := js.Global().Get("Module").Call(
 			"_TTF_RenderText_LCD",
 			_font,
 			_str,
 			_length,
 			_fg,
+			_bg,
 		)
 
-		_obj := internal.NewObject[sdl.Surface](ret)
-		return _obj
-	}*/
+		if ret.Int() == 0 {
+			return nil
+		}
+		return internal.NewObject[sdl.Surface](ret)
+	}
 
-	/*iRenderText_LCD_Wrapped = func(font *Font, str string, length uintptr, fg uint32, wrapWidth int32) *sdl.Surface {
-		panic("not implemented on js")
+	iRenderText_LCD_Wrapped = func(font *Font, str string, length uintptr, fg uint32, bg uint32, wrapWidth int32) *sdl.Surface {
 		internal.StackSave()
 		defer internal.StackRestore()
 		_font, ok := internal.GetJSPointer(font)
 		if !ok {
-			_font = internal.StackAlloc(int(unsafe.Sizeof(*font)))
+			panic("nil font")
 		}
 		_str := internal.StringOnJSStack(str)
-		_length := internal.NewBigInt(length)
-		_fg := int32(fg)
+		_length := int32(length)
+		_fg := internal.StackAlloc(4)
+		internal.SetValue(_fg, js.ValueOf(int32(fg)), "i32")
+		_bg := internal.StackAlloc(4)
+		internal.SetValue(_bg, js.ValueOf(int32(bg)), "i32")
 		_wrapWidth := int32(wrapWidth)
 		ret := js.Global().Get("Module").Call(
 			"_TTF_RenderText_LCD_Wrapped",
@@ -2216,30 +2261,41 @@ func initialize() {
 			_str,
 			_length,
 			_fg,
+			_bg,
 			_wrapWidth,
 		)
 
-		_obj := internal.NewObject[sdl.Surface](ret)
-		return _obj
-	}*/
+		if ret.Int() == 0 {
+			return nil
+		}
+		return internal.NewObject[sdl.Surface](ret)
+	}
 
-	/*iRenderGlyph_LCD = func(font *Font, ch uint32) *sdl.Surface {
-		panic("not implemented on js")
+	iRenderGlyph_LCD = func(font *Font, ch, fg, bg uint32) *sdl.Surface {
 		internal.StackSave()
 		defer internal.StackRestore()
 		_font, ok := internal.GetJSPointer(font)
 		if !ok {
-			_font = internal.StackAlloc(int(unsafe.Sizeof(*font)))
+			panic("nil font")
 		}
 		_ch := int32(ch)
+		// SDL_Color args are passed by value -> pointer to {r,g,b,a}.
+		_fg := internal.StackAlloc(4)
+		internal.SetValue(_fg, js.ValueOf(int32(fg)), "i32")
+		_bg := internal.StackAlloc(4)
+		internal.SetValue(_bg, js.ValueOf(int32(bg)), "i32")
 		ret := js.Global().Get("Module").Call(
 			"_TTF_RenderGlyph_LCD",
 			_font,
 			_ch,
+			_fg,
+			_bg,
 		)
 
-		_obj := internal.NewObject[sdl.Surface](ret)
-		return _obj
-	}*/
+		if ret.Int() == 0 {
+			return nil
+		}
+		return internal.NewObject[sdl.Surface](ret)
+	}
 
 }

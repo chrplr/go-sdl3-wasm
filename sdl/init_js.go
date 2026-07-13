@@ -42,12 +42,25 @@ func CloseLibrary() error {
 }
 
 func RunLoop(updateFunc func() error) error {
-	ch := make(chan error)
+	ch := make(chan error, 1)
+	// updateFunc may block across many animation frames (experiment-style code
+	// waits for input inside a single invocation). Each requestAnimationFrame
+	// tick invokes this callback on a fresh goroutine, so without a guard a
+	// blocked updateFunc would be re-entered concurrently every frame. The
+	// wasm runtime is single-threaded and non-preempting, so a plain bool is
+	// race-free here.
+	running := false
 	fn := js.FuncOf(func(this js.Value, args []js.Value) any {
+		if running {
+			return nil
+		}
+		running = true
 		if err := updateFunc(); err != nil {
 			js.Global().Call("_emscripten_cancel_main_loop")
 			ch <- err
+			return nil
 		}
+		running = false
 
 		return nil
 	})
