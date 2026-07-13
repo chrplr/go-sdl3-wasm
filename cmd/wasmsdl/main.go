@@ -267,6 +267,13 @@ Commands:
 
 		mux := http.NewServeMux()
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			// Cross-origin isolation lets browsers expose their full timer
+			// resolution (performance.now at ~5 us instead of ~100 us in
+			// Chrome), which SDL timestamps inherit. Everything served here
+			// is same-origin, so the isolation requirements cost nothing.
+			w.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
+			w.Header().Set("Cross-Origin-Embedder-Policy", "require-corp")
+
 			name := path.Base(r.URL.Path)
 
 			switch name {

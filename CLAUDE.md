@@ -98,6 +98,22 @@ body** — the generator has real bugs. Helpers live in `internal/` (js-tagged).
 
 Update the WASM column in `COVERAGE.md` when you enable a function.
 
+## Timestamps in the browser
+
+`cmd/wasmsdl/assets/sdl.js` is **patched** (and the Dockerfile re-applies the
+patch on rebuild): `_emscripten_date_now` returns
+`performance.timeOrigin + performance.now()` instead of `Date.now()`. Without
+it every SDL timestamp — `SDL_GetTicksNS` *and* input-event timestamps — is
+quantized to 1 ms, because SDL3's `SDL_GetPerformanceCounter` probes
+`CLOCK_MONOTONIC_RAW` (id 4), Emscripten's C-side WASI shim rejects ids > 3,
+and SDL falls back to `gettimeofday`, which Emscripten's libc implements with
+`emscripten_date_now`. Measured resolution after the patch (headless Chrome):
+~100 µs normally, ~5 µs when the page is cross-origin isolated — `wasmsdl
+serve` sends COOP/COEP headers to enable that. The clean upstream fix would be
+SDL not selecting `CLOCK_MONOTONIC_RAW` on Emscripten. Go's `time.Now()` on js
+still has 1 ms resolution (wall clock = `Date.now()`) — use SDL timestamps for
+timing.
+
 ## Assets in the browser
 
 There is no real filesystem, so path-based loaders won't work without Emscripten
