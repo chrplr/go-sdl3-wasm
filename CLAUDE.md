@@ -67,6 +67,9 @@ body** — the generator has real bugs. Helpers live in `internal/` (js-tagged).
   `cmd/jsgen` now generates floats correctly, so new stubs won't regress.
 - **`int64`/64-bit flags**: `internal.NewBigInt(x)`. `int32`/`uint32`: direct.
   But `size_t` string lengths are `i32` on wasm32 — `NewBigInt` truncated them.
+- **u64/i64 *returns*** (e.g. `SDL_GetWindowFlags`, `SDL_GetTicksNS`) arrive as
+  BigInt; `js.Value.Int()` panics on BigInt — use `internal.GetInt64(ret)`
+  (it stringifies, so it handles both Number and BigInt).
 - **Scalar out-param**: `internal.StackAlloc(4)` then
   `internal.GetValue(ptr, "i32"|"float")` (model: `iGetWindowSize`).
 - **Handle return**: `internal.NewObject[T](ret)` — it returns `nil` for a NULL
@@ -104,6 +107,12 @@ bytes → `sdl.IOFromConstMem(bytes)` → `img.LoadTextureIO` / `ttf.OpenFontIO`
 - `examples/audio` — core SDL audio: builds a WAV in memory, decodes with
   `LoadWAV_IO`, queues PCM on click/keypress (browsers gate audio behind a
   user gesture).
+
+The main downstream consumer is `~/00_git/goxpyriment` (filesystem `replace`).
+Its `hello_world` runs the full experiment-startup path — SDL/TTF init,
+in-memory font loading, system/display info, text rendering — and renders in
+the browser (verified 2026-07-13). Its `cmd/gen-wasm-exports` prints which
+go-sdl3 calls it uses that are still stubbed here.
 
 Verify in a browser (`go run ./cmd/wasmsdl serve ./examples/<x>`); each
 remaining stub panics in the JS console with its symbol name, which tells you
