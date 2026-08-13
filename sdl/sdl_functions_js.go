@@ -15421,22 +15421,22 @@ func initialize() {
 	}
 
 	iGetRenderDrawBlendMode = func(renderer *Renderer, blendMode *BlendMode) bool {
-		panic("not implemented on js")
 		internal.StackSave()
 		defer internal.StackRestore()
 		_renderer, ok := internal.GetJSPointer(renderer)
 		if !ok {
-			_renderer = internal.StackAlloc(int(unsafe.Sizeof(*renderer)))
+			panic("nil renderer")
 		}
-		_blendMode, ok := internal.GetJSPointer(blendMode)
-		if !ok {
-			_blendMode = internal.StackAlloc(int(unsafe.Sizeof(*blendMode)))
-		}
+		// blendMode is an out-param: it needs a stack slot that is read back
+		// after the call, like the neighbouring GetRenderDrawColor binding.
+		// SDL_BlendMode is a 32-bit enum.
+		_blendMode := internal.StackAlloc(int(unsafe.Sizeof(BlendMode(0))))
 		ret := js.Global().Get("Module").Call(
 			"_SDL_GetRenderDrawBlendMode",
 			_renderer,
 			_blendMode,
 		)
+		*blendMode = BlendMode(internal.GetValue(_blendMode, "i32").Int())
 
 		return internal.GetBool(ret)
 	}
