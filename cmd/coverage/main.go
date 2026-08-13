@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -50,13 +51,24 @@ type refFunc struct {
 
 var (
 	categories = map[string][]string{
+		// IN UPSTREAM ORDER. These name the banner comments in the wiki's
+		// QuickReference.md, and they are matched to it BY POSITION: the nth
+		// run of // comments in that file is the nth name here. Nothing in the
+		// file is parsed to confirm it, because the banners are ASCII art and
+		// not worth reading back.
+		//
+		// So when upstream adds or reorders a section, this list has to follow.
+		// checkCategories below refuses to generate anything when the counts
+		// disagree, and prints the first function of every section it found so
+		// the new one can be placed by name rather than by guesswork.
 		"sdl": {
 			"Init", "Hints", "Error", "Version", "Properties", "Log", "Video",
 			"Events", "Keyboard", "Mouse", "Touch", "Gamepad", "Joystick",
 			"Haptic", "Audio", "Time", "Timer", "Render", "SharedObject",
 			"Thread", "Mutex", "Atomic", "Filesystem", "IOStream", "AsyncIO",
 			"Storage", "Pixels", "Surface", "BlendMode", "Rect", "Camera",
-			"Clipboard", "Dialog", "Tray", "MessageBox", "GPU", "Vulkan", "Metal",
+			"MessageBox", "Clipboard", "Dialog", "Tray", "Notification",
+			"GPU", "Vulkan", "Metal",
 			/*"Platform",*/ "Power", "Sensor", "Process", "Bits", "Endian",
 			"Assert", "CPUInfo" /*"Intrinsics",*/, "Locale", "System", "Misc",
 			"GUID", "Stdinc",
@@ -92,6 +104,50 @@ var (
 	uniqueAPIFunctions = map[string]*refFunc{}
 	functions          []*refFunc
 )
+
+// checkCategories verifies that the sections parsed out of the wiki line up
+// with the names configured above, and explains itself when they do not.
+//
+// Without this the mismatch surfaced as "index out of range [50] with length
+// 50" from deep inside the writer — and only once upstream had added enough
+// sections to run off the end. A single added section did something worse and
+// quieter: every heading after it was written under the previous section's
+// name, and COVERAGE.md was wrong rather than absent.
+func checkCategories() error {
+	names := categories[cfg.LibraryName]
+	parsed := 0
+	for _, fn := range functions {
+		if fn.CategoryIndex+1 > parsed {
+			parsed = fn.CategoryIndex + 1
+		}
+	}
+	if parsed == len(names) {
+		return nil
+	}
+
+	// The first function of each section is the only reliable way to say which
+	// section it is, so it is what gets printed.
+	firstOf := make(map[int]string)
+	for _, fn := range functions {
+		if _, seen := firstOf[fn.CategoryIndex]; !seen {
+			firstOf[fn.CategoryIndex] = fn.Name
+		}
+	}
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "%s: the wiki has %d sections, this tool is configured with %d.\n",
+		cfg.LibraryName, parsed, len(names))
+	fmt.Fprintf(&sb, "Update categories[%q] in cmd/coverage/main.go so it matches, in order.\n\n",
+		cfg.LibraryName)
+	fmt.Fprintf(&sb, "  %-5s %-36s %s\n", "index", "first function in the section", "configured name")
+	for i := 0; i < parsed || i < len(names); i++ {
+		name := "<missing>"
+		if i < len(names) {
+			name = names[i]
+		}
+		fmt.Fprintf(&sb, "  %-5d %-36s %s\n", i, firstOf[i], name)
+	}
+	return errors.New(sb.String())
+}
 
 func AllFunctions() {
 	inComments := false
@@ -174,6 +230,9 @@ func main() {
 	path = filepath.Join(path, dir)
 
 	AllFunctions()
+	if err := checkCategories(); err != nil {
+		log.Fatal(err)
+	}
 
 	entries, err := os.ReadDir(path)
 	if err != nil {
